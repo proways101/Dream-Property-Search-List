@@ -32,7 +32,7 @@ export const MOCK_MLS_LISTINGS: PropertyListing[] = [
       'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=800&q=80',
       'https://images.unsplash.com/photo-1600566753376-12c8ab7fb75b?auto=format&fit=crop&w=800&q=80'
     ],
-    realtorUrl: 'https://www.realtor.com/realestateandhomes-detail/4208-Shady-Hollow-Dr_Austin_TX_78749_M8492011',
+    realtorUrl: '/api/properties/realtor-redirect?address=4208-Shady-Hollow-Dr%20Austin%20TX%2078749',
     description: 'Immaculately maintained single-story craftsman nestled beneath mature Texas live oaks. Features upgraded quartz kitchen countertops, modern energy-efficient HVAC, and private fenced backyard.'
   },
   {
@@ -65,7 +65,7 @@ export const MOCK_MLS_LISTINGS: PropertyListing[] = [
       'https://images.unsplash.com/photo-1570129477492-45c003edd2be?auto=format&fit=crop&w=1200&q=80',
       'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=800&q=80',
     ],
-    realtorUrl: 'https://www.realtor.com/realestateandhomes-detail/6114-Brushy-Creek-Trl_Austin_TX_78745_M7712390',
+    realtorUrl: '/api/properties/realtor-redirect?address=6114-Brushy-Creek-Trl%20Austin%20TX%2078745',
     description: 'Stunning 4-bedroom family haven located minutes from downtown Austin. Zoned for top-rated exemplary elementary and middle schools with scenic neighborhood park access.'
   },
   {
@@ -97,7 +97,7 @@ export const MOCK_MLS_LISTINGS: PropertyListing[] = [
       'https://images.unsplash.com/photo-1600585154526-990dced4db0d?auto=format&fit=crop&w=1200&q=80',
       'https://images.unsplash.com/photo-1600210492486-724fe5c67fb0?auto=format&fit=crop&w=800&q=80'
     ],
-    realtorUrl: 'https://www.realtor.com/realestateandhomes-detail/2910-Berkley-Ave_Austin_TX_78723_M9104823',
+    realtorUrl: '/api/properties/realtor-redirect?address=2910-Berkley-Ave%20Austin%20TX%2078723',
     description: 'Sleek eco-friendly townhome featuring rooftop terrace views, solar-ready roof, high ceilings, and walkability to farmer markets and lakeside jogging trails.'
   },
   {
@@ -130,7 +130,7 @@ export const MOCK_MLS_LISTINGS: PropertyListing[] = [
       'https://images.unsplash.com/photo-1580587771525-78b9dba3b914?auto=format&fit=crop&w=1200&q=80',
       'https://images.unsplash.com/photo-1512917774080-9991f1c4c750?auto=format&fit=crop&w=800&q=80'
     ],
-    realtorUrl: 'https://www.realtor.com/realestateandhomes-detail/1402-Cypress-Creek-Rd_Cedar-Park_TX_78613_M6382910',
+    realtorUrl: '/api/properties/realtor-redirect?address=1402-Cypress-Creek-Rd%20Cedar-Park%20TX%2078613',
     description: 'Single-story ranch style residence with sprawling yard, covered patio, granite counters, and walking distance to Leander ISD elementary school.'
   },
   {
@@ -163,7 +163,7 @@ export const MOCK_MLS_LISTINGS: PropertyListing[] = [
       'https://images.unsplash.com/photo-1598228723793-52759bba239c?auto=format&fit=crop&w=1200&q=80',
       'https://images.unsplash.com/photo-1600573472591-ee6b68d14c68?auto=format&fit=crop&w=800&q=80'
     ],
-    realtorUrl: 'https://www.realtor.com/realestateandhomes-detail/804-Sam-Bass-Way_Round-Rock_TX_78681_M5509124',
+    realtorUrl: '/api/properties/realtor-redirect?address=804-Sam-Bass-Way%20Round-Rock%20TX%2078681',
     description: 'Spacious 4-bed single family home in quiet cul-de-sac. Equipped with smart thermostats, level-2 EV outlet in garage, and expansive entertaining patio.'
   },
   {
@@ -195,7 +195,7 @@ export const MOCK_MLS_LISTINGS: PropertyListing[] = [
       'https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?auto=format&fit=crop&w=1200&q=80',
       'https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?auto=format&fit=crop&w=800&q=80'
     ],
-    realtorUrl: 'https://www.realtor.com/realestateandhomes-detail/2200-S-Lamar-Blvd-Apt-304_Austin_TX_78704_M4402195',
+    realtorUrl: '/api/properties/realtor-redirect?address=2200-S-Lamar-Blvd-Apt-304%20Austin%20TX%2078704',
     description: 'Vibrant 78704 living! Modern penthouse-style corner condo with floor-to-ceiling windows, stainless appliances, secure reserved parking, and community pool.'
   },
   // EXCLUDED HOMES (Above default affordability ceiling or hard constraints):
@@ -228,7 +228,7 @@ export const MOCK_MLS_LISTINGS: PropertyListing[] = [
     photos: [
       'https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?auto=format&fit=crop&w=1200&q=80'
     ],
-    realtorUrl: 'https://www.realtor.com/realestateandhomes-detail/8801-Scenic-View-Dr_Austin_TX_78746_M1135000',
+    realtorUrl: '/api/properties/realtor-redirect?address=8801-Scenic-View-Dr%20Austin%20TX%2078746',
     description: 'Westlake estate with hill country panorama, infinity pool, wine cellar, and commercial chef kitchen.'
   },
   {
@@ -259,7 +259,7 @@ export const MOCK_MLS_LISTINGS: PropertyListing[] = [
     photos: [
       'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1200&q=80'
     ],
-    realtorUrl: 'https://www.realtor.com/realestateandhomes-detail/3810-Barton-Point-Dr_Austin_TX_78735_M499000',
+    realtorUrl: '/api/properties/realtor-redirect?address=3810-Barton-Point-Dr%20Austin%20TX%2078735',
     description: 'Designer home backing up to Barton Creek Greenbelt reserve.'
   },
   {
@@ -291,7 +291,7 @@ export const MOCK_MLS_LISTINGS: PropertyListing[] = [
     photos: [
       'https://images.unsplash.com/photo-1582268611958-ebfd161ef9cf?auto=format&fit=crop&w=1200&q=80'
     ],
-    realtorUrl: 'https://www.realtor.com/realestateandhomes-detail/1604-Webberville-Rd_Austin_TX_78721_M319000',
+    realtorUrl: '/api/properties/realtor-redirect?address=1604-Webberville-Rd%20Austin%20TX%2078721',
     description: 'Historic East Austin bungalow with upgraded plumbing, electrical, and original hardwood pine floors.'
   },
   {
@@ -323,7 +323,7 @@ export const MOCK_MLS_LISTINGS: PropertyListing[] = [
     photos: [
       'https://images.unsplash.com/photo-1613977257363-707ba9348227?auto=format&fit=crop&w=1200&q=80'
     ],
-    realtorUrl: 'https://www.realtor.com/realestateandhomes-detail/17804-Black-Locust-Dr_Pflugerville_TX_78660_M375000',
+    realtorUrl: '/api/properties/realtor-redirect?address=17804-Black-Locust-Dr%20Pflugerville%20TX%2078660',
     description: 'Spacious two-story residence directly across from Lake Pflugerville park and trail system. Features covered rear porch and EV charging.'
   }
 ];

@@ -19,18 +19,7 @@ function normalizePropertyType(typeStr: string = ''): HouseType {
   return 'Single Family';
 }
 
-function buildRealtorUrl(addressLine: string, city: string, state: string, zipCode: string, mlsNumber?: string): string {
-  const slugAddress = (addressLine || 'Property')
-    .trim()
-    .replace(/[^\w\s-]/g, '')
-    .replace(/\s+/g, '-');
-  const slugCity = (city || 'City').trim().replace(/\s+/g, '-');
-  const slugState = (state || 'US').trim().toUpperCase();
-  const slugZip = (zipCode || '').trim();
-  const idPart = mlsNumber ? `_M${mlsNumber.replace(/\D/g, '').slice(-7)}` : '';
-
-  return `https://www.realtor.com/realestateandhomes-detail/${slugAddress}_${slugCity}_${slugState}_${slugZip}${idPart}`;
-}
+import { resolveRealtorUrl } from '@/lib/realtorResolver';
 
 export async function POST(request: NextRequest) {
   try {
@@ -104,67 +93,72 @@ export async function POST(request: NextRequest) {
     }
 
     // Transform live RentCast properties into our standard PropertyListing format
-    const transformedListings: PropertyListing[] = items.map((item: any, idx: number) => {
-      const addr = item.addressLine1 || item.formattedAddress?.split(',')[0] || `Property #${idx + 1}`;
-      const city = item.city || criteria.city || 'Austin';
-      const state = item.state || criteria.state || 'TX';
-      const zip = item.zipCode || criteria.zipCode || '';
-      const mls = item.mlsNumber || `RC-${item.id?.slice(-7) || (1000000 + idx)}`;
-      const price = item.price || (criteria.intent === 'rent' ? 2200 : 350000);
-      const bedrooms = item.bedrooms || 3;
-      const bathrooms = item.bathrooms || 2;
-      const sqft = item.squareFootage || 1600;
-      const propertyType = normalizePropertyType(item.propertyType);
+    const transformedListings: PropertyListing[] = await Promise.all(
+      items.map(async (item: any, idx: number) => {
+        const addr = item.addressLine1 || item.formattedAddress?.split(',')[0] || `Property #${idx + 1}`;
+        const city = item.city || criteria.city || 'Austin';
+        const state = item.state || criteria.state || 'TX';
+        const zip = item.zipCode || criteria.zipCode || '';
+        const mls = item.mlsNumber || `RC-${item.id?.slice(-7) || (1000000 + idx)}`;
+        const price = item.price || (criteria.intent === 'rent' ? 2200 : 350000);
+        const bedrooms = item.bedrooms || 3;
+        const bathrooms = item.bathrooms || 2;
+        const sqft = item.squareFootage || 1600;
+        const propertyType = normalizePropertyType(item.propertyType);
 
-      // Photos from RentCast or fallback photo
-      const photos = item.photos && item.photos.length > 0
-        ? item.photos
-        : [DEFAULT_REAL_ESTATE_PHOTOS[idx % DEFAULT_REAL_ESTATE_PHOTOS.length]];
+        // Photos from RentCast or fallback photo
+        const photos = item.photos && item.photos.length > 0
+          ? item.photos
+          : [DEFAULT_REAL_ESTATE_PHOTOS[idx % DEFAULT_REAL_ESTATE_PHOTOS.length]];
 
-      // Real Realtor.com direct property link
-      const realtorUrl = buildRealtorUrl(addr, city, state, zip, mls);
+        // Asynchronously resolve authentic Realtor.com property URL using MoveAWS geo resolver
+        // For top listings, resolve live; falls back to Google Realtor search if unindexed
+        const realtorUrl = idx < 30
+          ? await resolveRealtorUrl(addr, city, state, zip)
+          : `https://www.google.com/search?q=${encodeURIComponent(`realtor.com ${addr} ${city} ${state} ${zip}`)}`;
 
-      // Tax estimate from RentCast or 2% formula
-      const taxes = item.propertyTaxes?.[Object.keys(item.propertyTaxes || {})[0]]?.total || Math.round(price * 0.02);
-      const hoaMonthly = item.hoa?.fee || 0;
+        // Tax estimate from RentCast or 2% formula
+        const taxes = item.propertyTaxes?.[Object.keys(item.propertyTaxes || {})[0]]?.total || Math.round(price * 0.02);
+        const hoaMonthly = item.hoa?.fee || 0;
 
-      // Derived lifestyle indicators based on coordinates & index
-      const schoolRating = Math.min(10, Math.max(5, 6 + ((idx * 3) % 5))); // 6 to 10
-      const safetyScore = Math.min(98, Math.max(65, 75 + ((idx * 7) % 24))); // 75 to 98
-      const commuteTimeMinutes = 12 + ((idx * 5) % 35); // 12 to 45 min
-      const hasParksNearby = idx % 5 !== 0; // 80% have nearby parks
+        // Derived lifestyle indicators based on coordinates & index
+        const schoolRating = Math.min(10, Math.max(5, 6 + ((idx * 3) % 5))); // 6 to 10
+        const safetyScore = Math.min(98, Math.max(65, 75 + ((idx * 7) % 24))); // 75 to 98
+        const commuteTimeMinutes = 12 + ((idx * 5) % 35); // 12 to 45 min
+        const hasParksNearby = idx % 5 !== 0; // 80% have nearby parks
 
-      return {
-        id: item.id || `rc-${idx}`,
-        mlsNumber: mls,
-        title: `${bedrooms} Bed ${propertyType} in ${city}`,
-        address: addr,
-        city,
-        state,
-        zipCode: zip,
-        lat: item.latitude || (30.2672 + (Math.sin(idx) * 0.08)),
-        lng: item.longitude || (-97.7431 + (Math.cos(idx) * 0.08)),
-        price,
-        bedrooms,
-        bathrooms,
-        sqft,
-        lotSizeSqft: item.lotSize || 6000,
-        yearBuilt: item.yearBuilt || 2014,
-        propertyType,
-        daysOnMarket: item.daysOnMarket || (idx * 2 + 3),
-        schoolRating,
-        safetyScore,
-        commuteTimeMinutes,
-        hasParksNearby,
-        hasPool: idx % 3 === 0,
-        isSingleStory: idx % 2 === 0,
-        annualTax: taxes,
-        hoaMonthly,
-        photos,
-        realtorUrl,
-        description: item.description || `Active ${propertyType} featuring ${bedrooms} beds, ${bathrooms} baths, and ${sqft.toLocaleString()} sqft in ${city}, ${state}.`,
-      };
-    });
+        return {
+          id: item.id || `rc-${idx}`,
+          mlsNumber: mls,
+          title: `${bedrooms} Bed ${propertyType} in ${city}`,
+          address: addr,
+          city,
+          state,
+          zipCode: zip,
+          lat: item.latitude || (30.2672 + (Math.sin(idx) * 0.08)),
+          lng: item.longitude || (-97.7431 + (Math.cos(idx) * 0.08)),
+          price,
+          bedrooms,
+          bathrooms,
+          sqft,
+          lotSizeSqft: item.lotSize || 6000,
+          yearBuilt: item.yearBuilt || 2014,
+          propertyType,
+          daysOnMarket: item.daysOnMarket || (idx * 2 + 3),
+          schoolRating,
+          safetyScore,
+          commuteTimeMinutes,
+          hasParksNearby,
+          hasPool: idx % 3 === 0,
+          isSingleStory: idx % 2 === 0,
+          annualTax: taxes,
+          hoaMonthly,
+          photos,
+          realtorUrl,
+          description: item.description || `Active ${propertyType} featuring ${bedrooms} beds, ${bathrooms} baths, and ${sqft.toLocaleString()} sqft in ${city}, ${state}.`,
+        };
+      })
+    );
 
     console.log(`Successfully fetched and mapped ${transformedListings.length} live listings from RentCast.`);
 

@@ -251,6 +251,26 @@ function MapComponentInner({
               <span>View Full Details on Realtor.com</span>
               <ExternalLink className="w-3.5 h-3.5" />
             </a>
+            <div className="mt-1.5 flex items-center justify-center gap-2 text-[10px] text-slate-500 font-medium">
+              <span>Also search:</span>
+              <a
+                href={`https://www.google.com/search?q=${encodeURIComponent(`realtor.com ${hoveredProperty.address} ${hoveredProperty.city} ${hoveredProperty.state} ${hoveredProperty.zipCode}`)}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-blue-600 hover:underline"
+              >
+                Google
+              </a>
+              <span>•</span>
+              <a
+                href={`https://www.zillow.com/homes/${encodeURIComponent(`${hoveredProperty.address}, ${hoveredProperty.city}, ${hoveredProperty.state} ${hoveredProperty.zipCode}`)}_rb/`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-blue-600 hover:underline"
+              >
+                Zillow
+              </a>
+            </div>
           </div>
         </div>
       )}

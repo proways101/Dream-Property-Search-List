@@ -129,7 +129,7 @@ export function ListingCard({
         </div>
 
         {/* View on Realtor.com Button */}
-        <div className="pt-3 border-t border-slate-100">
+        <div className="pt-3 border-t border-slate-100 flex flex-col gap-1.5">
           <a
             href={property.realtorUrl}
             target="_blank"
@@ -140,6 +140,28 @@ export function ListingCard({
             <span>View Full Details on Realtor.com</span>
             <ExternalLink className="w-3.5 h-3.5" />
           </a>
+          <div className="flex items-center justify-center gap-2 text-[11px] text-slate-500 font-medium">
+            <span>Also search:</span>
+            <a
+              href={`https://www.google.com/search?q=${encodeURIComponent(`realtor.com ${property.address} ${property.city} ${property.state} ${property.zipCode}`)}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => e.stopPropagation()}
+              className="text-blue-600 hover:text-blue-800 hover:underline"
+            >
+              Google
+            </a>
+            <span>•</span>
+            <a
+              href={`https://www.zillow.com/homes/${encodeURIComponent(`${property.address}, ${property.city}, ${property.state} ${property.zipCode}`)}_rb/`}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => e.stopPropagation()}
+              className="text-blue-600 hover:text-blue-800 hover:underline"
+            >
+              Zillow
+            </a>
+          </div>
         </div>
       </div>
     </div>
