@@ -6,3 +6,5 @@ out
 .DS_Store
 *.env*.local
 extracted_spec.txt
+
+.vercel

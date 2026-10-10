@@ -67,7 +67,7 @@ export function TrainLineStepper({
         </div>
 
         {/* Stations Grid */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-7 gap-3 md:gap-2">
+        <div className="grid grid-cols-3 sm:grid-cols-5 md:grid-cols-9 gap-2">
           {TRAIN_STOPS.map((stop, index) => {
             const isCurrent = currentStopIndex === index;
             const isCompleted = visitedStops.includes(index) && !isCurrent;

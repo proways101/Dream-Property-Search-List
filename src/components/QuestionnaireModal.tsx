@@ -1,9 +1,10 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { SearchCriteria, PersonaType, HouseType } from '@/types';
 import { TRAIN_STOPS } from '@/lib/branchingEngine';
 import { calculateMaxHomePrice, getInterestRateForCreditScore } from '@/lib/affordability';
+import { ALL_US_STATES_AND_TERRITORIES, getCitiesForState, US_CITIES_BY_STATE } from '@/data/usLocations';
 import { 
   ArrowRight, 
   ArrowLeft, 
@@ -19,7 +20,12 @@ import {
   TrendingUp, 
   HeartHandshake, 
   AlertTriangle,
-  CheckCircle2
+  CheckCircle2,
+  Key,
+  Search,
+  Loader2,
+  Check,
+  Building2
 } from 'lucide-react';
 
 interface QuestionnaireModalProps {
@@ -46,6 +52,22 @@ export function QuestionnaireModal({
   isLoggedIn
 }: QuestionnaireModalProps) {
   const currentStop = TRAIN_STOPS[currentStopIndex];
+
+  // City & Zipcode search states
+  const [locationMode, setLocationMode] = useState<'city' | 'zipcode'>('city');
+  const [cityInput, setCityInput] = useState<string>(criteria.city || 'Austin');
+  const [zipInput, setZipInput] = useState<string>(criteria.zipCode || '');
+  const [isCityDropdownOpen, setIsCityDropdownOpen] = useState<boolean>(false);
+  const [isZipLoading, setIsZipLoading] = useState<boolean>(false);
+  const [zipResult, setZipResult] = useState<any | null>(null);
+  const [zipError, setZipError] = useState<string | null>(null);
+
+  // Sync cityInput when criteria.city changes
+  useEffect(() => {
+    if (criteria.city) {
+      setCityInput(criteria.city);
+    }
+  }, [criteria.city]);
 
   // Helper to update criteria and recompute price ceiling
   const updateField = <K extends keyof SearchCriteria>(key: K, value: SearchCriteria[K]) => {
@@ -80,9 +102,64 @@ export function QuestionnaireModal({
     }
   };
 
+  // State selection handler
+  const handleStateChange = (newCode: string) => {
+    const defaultCities = US_CITIES_BY_STATE[newCode] || [];
+    const newCity = defaultCities[0] || 'Metro Center';
+    const updated: SearchCriteria = {
+      ...criteria,
+      state: newCode,
+      city: newCity,
+      zipCode: '', // reset zip on state change
+    };
+    setCityInput(newCity);
+    setZipInput('');
+    setZipResult(null);
+    onChangeCriteria(updated);
+  };
+
+  // Zipcode API Lookup
+  const handleZipLookup = async (zipToSearch: string) => {
+    if (zipToSearch.length !== 5) {
+      setZipError('Please enter a 5-digit US zipcode');
+      return;
+    }
+    setIsZipLoading(true);
+    setZipError(null);
+    setZipResult(null);
+
+    try {
+      const res = await fetch(`/api/zipcode?zip=${zipToSearch}`);
+      const data = await res.json();
+      if (res.ok && data.success && data.places && data.places.length > 0) {
+        setZipResult(data.places);
+        const firstPlace = data.places[0];
+        // If state matches or user accepts
+        const updated: SearchCriteria = {
+          ...criteria,
+          state: firstPlace.stateAbbr,
+          city: firstPlace.city,
+          zipCode: zipToSearch,
+        };
+        setCityInput(firstPlace.city);
+        onChangeCriteria(updated);
+      } else {
+        setZipError(data.message || `No cities found for zipcode ${zipToSearch}`);
+      }
+    } catch (e) {
+      setZipError('Error contacting zipcode service');
+    } finally {
+      setIsZipLoading(false);
+    }
+  };
+
+  // Dynamic city typeahead options strictly within criteria.state
+  const filteredCities = getCitiesForState(criteria.state, cityInput);
+
   // Check 36% gross income warning for mortgage
   const isMortgageAbove36Percent = criteria.maxMonthlyMortgage > criteria.monthlyIncome * 0.36;
   const currentInterestRate = (getInterestRateForCreditScore(criteria.creditScore) * 100).toFixed(2);
+  const selectedStateObj = ALL_US_STATES_AND_TERRITORIES.find(s => s.code === criteria.state);
 
   return (
     <div className="bg-white rounded-3xl shadow-xl border border-slate-200 overflow-hidden">
@@ -97,82 +174,361 @@ export function QuestionnaireModal({
               </span>
             )}
           </div>
-          <h2 className="text-xl md:text-2xl font-black">{currentStop.title}</h2>
-          <p className="text-sm text-slate-300 mt-1">{currentStop.subtitle}</p>
+          <h2 className="text-xl md:text-2xl font-black">
+            {currentStopIndex === 1
+              ? (criteria.intent === 'buy' ? 'Stop 2: Which State are you planning to Buy?' : 'Stop 2: Which State are you planning to Rent?')
+              : currentStop.title}
+          </h2>
+          <p className="text-sm text-slate-300 mt-1">
+            {currentStopIndex === 1
+              ? `Select from all 50 US States and Territories for your ${criteria.intent.toUpperCase()} search.`
+              : currentStop.subtitle}
+          </p>
         </div>
       </div>
 
       <div className="p-6 md:p-8 space-y-6">
-        {/* STOP 1: LOCATION */}
+        {/* ========================================================= */}
+        {/* STOP 1: TRANSACTION INTENT (BUY OR RENT RADIO)           */}
+        {/* ========================================================= */}
         {currentStopIndex === 0 && (
           <div className="space-y-6 animate-in fade-in duration-200">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div>
-                <label className="block text-xs font-bold text-slate-700 uppercase mb-2">
-                  State (Hard Filter)
-                </label>
-                <select
-                  value={criteria.state}
-                  onChange={(e) => updateField('state', e.target.value)}
-                  className="w-full px-4 py-3 rounded-xl border border-slate-300 bg-white font-semibold text-slate-800 focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="TX">TX — Texas</option>
-                  <option value="CA">CA — California</option>
-                  <option value="FL">FL — Florida</option>
-                  <option value="NY">NY — New York</option>
-                  <option value="WA">WA — Washington</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-700 uppercase mb-2">
-                  City (Required)
-                </label>
-                <input
-                  type="text"
-                  value={criteria.city}
-                  onChange={(e) => updateField('city', e.target.value)}
-                  placeholder="e.g. Austin"
-                  className="w-full px-4 py-3 rounded-xl border border-slate-300 font-semibold text-slate-800 focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-700 uppercase mb-2">
-                  Zip Code (Optional Override)
-                </label>
-                <input
-                  type="text"
-                  value={criteria.zipCode}
-                  onChange={(e) => updateField('zipCode', e.target.value)}
-                  placeholder="e.g. 78749"
-                  maxLength={5}
-                  className="w-full px-4 py-3 rounded-xl border border-slate-300 font-semibold text-slate-800 focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
+            <div className="text-center max-w-lg mx-auto mb-4">
+              <h3 className="text-lg font-bold text-slate-900">Are you planning to Buy or Rent?</h3>
+              <p className="text-xs text-slate-500 mt-1">
+                Your journey and affordability calculations will customize specifically for home purchase or rental lease.
+              </p>
             </div>
 
-            <div>
-              <div className="flex justify-between items-center mb-2">
-                <label className="text-xs font-bold text-slate-700 uppercase">
-                  Search Radius: <span className="text-blue-600 font-black">{criteria.radiusMiles} Miles</span>
-                </label>
-                <span className="text-xs text-slate-400">Allowed: 1 – 100 mi</span>
-              </div>
-              <input
-                type="range"
-                min={1}
-                max={100}
-                value={criteria.radiusMiles}
-                onChange={(e) => updateField('radiusMiles', Number(e.target.value))}
-                className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-600"
-              />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5 max-w-2xl mx-auto">
+              {/* Radio Option: BUY */}
+              <label
+                onClick={() => updateField('intent', 'buy')}
+                className={`relative p-6 rounded-2xl border-2 cursor-pointer transition-all flex flex-col justify-between ${
+                  criteria.intent === 'buy'
+                    ? 'border-blue-600 bg-blue-50/70 ring-4 ring-blue-500/10 shadow-lg'
+                    : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50'
+                }`}
+              >
+                <div className="flex items-start justify-between">
+                  <div className={`p-3 rounded-2xl ${criteria.intent === 'buy' ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-700'}`}>
+                    <Home className="w-7 h-7" />
+                  </div>
+                  {/* Radio button circle */}
+                  <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center ${
+                    criteria.intent === 'buy' ? 'border-blue-600 bg-blue-600' : 'border-slate-300'
+                  }`}>
+                    {criteria.intent === 'buy' && <div className="w-2.5 h-2.5 rounded-full bg-white" />}
+                  </div>
+                </div>
+
+                <div className="mt-5">
+                  <div className="text-xl font-black text-slate-900">Buy a Home</div>
+                  <p className="text-xs text-slate-600 mt-1 leading-relaxed">
+                    I want to purchase a property, build equity, and find homes within my true mortgage budget.
+                  </p>
+                  <div className="mt-3 inline-flex items-center gap-1.5 text-[11px] font-bold text-blue-700 bg-blue-100/70 px-2.5 py-1 rounded-md">
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                    <span>Includes Affordability Ceiling & Tax Calculations</span>
+                  </div>
+                </div>
+              </label>
+
+              {/* Radio Option: RENT */}
+              <label
+                onClick={() => updateField('intent', 'rent')}
+                className={`relative p-6 rounded-2xl border-2 cursor-pointer transition-all flex flex-col justify-between ${
+                  criteria.intent === 'rent'
+                    ? 'border-emerald-600 bg-emerald-50/70 ring-4 ring-emerald-500/10 shadow-lg'
+                    : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50'
+                }`}
+              >
+                <div className="flex items-start justify-between">
+                  <div className={`p-3 rounded-2xl ${criteria.intent === 'rent' ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-700'}`}>
+                    <Key className="w-7 h-7" />
+                  </div>
+                  {/* Radio button circle */}
+                  <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center ${
+                    criteria.intent === 'rent' ? 'border-emerald-600 bg-emerald-600' : 'border-slate-300'
+                  }`}>
+                    {criteria.intent === 'rent' && <div className="w-2.5 h-2.5 rounded-full bg-white" />}
+                  </div>
+                </div>
+
+                <div className="mt-5">
+                  <div className="text-xl font-black text-slate-900">Rent a Home</div>
+                  <p className="text-xs text-slate-600 mt-1 leading-relaxed">
+                    I want to lease an apartment, townhouse, or house with flexible terms and monthly rental budget.
+                  </p>
+                  <div className="mt-3 inline-flex items-center gap-1.5 text-[11px] font-bold text-emerald-700 bg-emerald-100/70 px-2.5 py-1 rounded-md">
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                    <span>Includes Lease Terms & Monthly Rent Analysis</span>
+                  </div>
+                </div>
+              </label>
             </div>
           </div>
         )}
 
-        {/* STOP 2: LIFESTYLE PERSONA FORK */}
+        {/* ========================================================= */}
+        {/* STOP 2: STATE SELECTION (ALL 50 STATES & TERRITORIES)     */}
+        {/* ========================================================= */}
         {currentStopIndex === 1 && (
+          <div className="space-y-6 animate-in fade-in duration-200">
+            <div className="max-w-xl mx-auto space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase mb-2">
+                  {criteria.intent === 'buy' ? 'Which State are you planning to Buy?' : 'Which State are you planning to Rent?'} (All 50 States & Territories)
+                </label>
+                <div className="relative">
+                  <select
+                    value={criteria.state}
+                    onChange={(e) => handleStateChange(e.target.value)}
+                    className="w-full px-4 py-3.5 rounded-xl border-2 border-blue-500 bg-white font-bold text-base text-slate-900 focus:ring-4 focus:ring-blue-100 shadow-sm"
+                  >
+                    {ALL_US_STATES_AND_TERRITORIES.map((s) => (
+                      <option key={s.code} value={s.code}>
+                        {s.name} ({s.code})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <p className="text-xs text-slate-500 mt-1.5">
+                  Selected: <span className="font-bold text-blue-600">{selectedStateObj?.name}</span> ({criteria.state})
+                </p>
+              </div>
+
+              {/* Popular States Quick-Pick Tiles */}
+              <div>
+                <div className="text-xs font-bold text-slate-600 uppercase mb-2">Popular Quick Selections:</div>
+                <div className="flex flex-wrap gap-2">
+                  {['TX', 'CA', 'FL', 'NY', 'WA', 'CO', 'NC', 'GA', 'IL', 'AZ', 'PA', 'OH'].map((code) => {
+                    const st = ALL_US_STATES_AND_TERRITORIES.find(s => s.code === code);
+                    const isSelected = criteria.state === code;
+                    return (
+                      <button
+                        key={code}
+                        type="button"
+                        onClick={() => handleStateChange(code)}
+                        className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1 ${
+                          isSelected
+                            ? 'bg-blue-600 text-white shadow'
+                            : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
+                        }`}
+                      >
+                        {isSelected && <Check className="w-3 h-3 stroke-[3]" />}
+                        <span>{st?.name}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ========================================================= */}
+        {/* STOP 3: CITY OR ZIPCODE (WITH TYPEAHEAD & API SEARCH)     */}
+        {/* ========================================================= */}
+        {currentStopIndex === 2 && (
+          <div className="space-y-6 animate-in fade-in duration-200">
+            <div className="max-w-2xl mx-auto space-y-5">
+              {/* Tab Selector between City Typeahead and Zipcode API */}
+              <div className="flex items-center justify-center p-1 bg-slate-100 rounded-2xl max-w-md mx-auto">
+                <button
+                  type="button"
+                  onClick={() => setLocationMode('city')}
+                  className={`flex-1 py-2 px-4 rounded-xl text-xs font-bold transition ${
+                    locationMode === 'city'
+                      ? 'bg-white text-slate-900 shadow-sm'
+                      : 'text-slate-500 hover:text-slate-900'
+                  }`}
+                >
+                  🏙️ Search City (within {criteria.state})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setLocationMode('zipcode')}
+                  className={`flex-1 py-2 px-4 rounded-xl text-xs font-bold transition ${
+                    locationMode === 'zipcode'
+                      ? 'bg-white text-slate-900 shadow-sm'
+                      : 'text-slate-500 hover:text-slate-900'
+                  }`}
+                >
+                  📮 Search by Zipcode
+                </button>
+              </div>
+
+              {/* MODE A: CITY TYPEAHEAD WITHIN STATE */}
+              {locationMode === 'city' && (
+                <div className="space-y-3 relative">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 uppercase mb-1.5">
+                      Which City? (Filtered strictly to {selectedStateObj?.name})
+                    </label>
+                    <div className="relative">
+                      <Search className="absolute left-3.5 top-3.5 w-4 h-4 text-slate-400" />
+                      <input
+                        type="text"
+                        value={cityInput}
+                        onChange={(e) => {
+                          setCityInput(e.target.value);
+                          updateField('city', e.target.value);
+                          setIsCityDropdownOpen(true);
+                        }}
+                        onFocus={() => setIsCityDropdownOpen(true)}
+                        placeholder={`Type city in ${selectedStateObj?.name}...`}
+                        className="w-full pl-10 pr-4 py-3 rounded-xl border-2 border-slate-300 font-semibold text-slate-900 focus:border-blue-500 focus:outline-none"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Typeahead Suggestions Dropdown */}
+                  {isCityDropdownOpen && (
+                    <div className="p-2 bg-white rounded-2xl border border-slate-200 shadow-xl max-h-56 overflow-y-auto space-y-1">
+                      <div className="text-[11px] font-bold text-slate-400 px-3 py-1">
+                        Available Cities in {selectedStateObj?.name} ({criteria.state}):
+                      </div>
+                      {filteredCities.map((c) => (
+                        <button
+                          key={c}
+                          type="button"
+                          onClick={() => {
+                            setCityInput(c);
+                            updateField('city', c);
+                            setIsCityDropdownOpen(false);
+                          }}
+                          className={`w-full text-left px-3 py-2 rounded-xl text-xs font-bold flex items-center justify-between transition ${
+                            criteria.city.toLowerCase() === c.toLowerCase()
+                              ? 'bg-blue-50 text-blue-700'
+                              : 'hover:bg-slate-100 text-slate-700'
+                          }`}
+                        >
+                          <span>{c}, {criteria.state}</span>
+                          {criteria.city.toLowerCase() === c.toLowerCase() && (
+                            <Check className="w-3.5 h-3.5 text-blue-600" />
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* MODE B: ZIPCODE SEARCH API */}
+              {locationMode === 'zipcode' && (
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 uppercase mb-1.5">
+                      Enter 5-Digit US Zipcode
+                    </label>
+                    <div className="flex gap-2">
+                      <div className="relative flex-1">
+                        <MapPin className="absolute left-3.5 top-3.5 w-4 h-4 text-slate-400" />
+                        <input
+                          type="text"
+                          maxLength={5}
+                          value={zipInput}
+                          onChange={(e) => {
+                            const val = e.target.value.replace(/\D/g, '');
+                            setZipInput(val);
+                            if (val.length === 5) {
+                              handleZipLookup(val);
+                            }
+                          }}
+                          placeholder="e.g. 78749 or 90210"
+                          className="w-full pl-10 pr-4 py-3 rounded-xl border-2 border-slate-300 font-bold text-slate-900 focus:border-blue-500 focus:outline-none"
+                        />
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleZipLookup(zipInput)}
+                        disabled={isZipLoading || zipInput.length !== 5}
+                        className="px-5 py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition flex items-center gap-1.5 disabled:opacity-40"
+                      >
+                        {isZipLoading ? (
+                          <>
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                            <span>Resolving...</span>
+                          </>
+                        ) : (
+                          <>
+                            <Search className="w-4 h-4" />
+                            <span>Lookup</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Zipcode API Lookup Results */}
+                  {zipError && (
+                    <div className="p-3 bg-rose-50 text-rose-700 rounded-xl text-xs font-medium border border-rose-200">
+                      {zipError}
+                    </div>
+                  )}
+
+                  {zipResult && zipResult.length > 0 && (
+                    <div className="p-4 bg-emerald-50 rounded-2xl border border-emerald-200 space-y-2">
+                      <div className="text-xs font-bold text-emerald-900">
+                        ✓ Zipcode {zipInput} resolved via Postal Search:
+                      </div>
+                      {zipResult.map((place: any, idx: number) => (
+                        <div key={idx} className="flex items-center justify-between bg-white p-3 rounded-xl border border-emerald-100">
+                          <div>
+                            <div className="font-bold text-slate-900 text-sm">{place.city}, {place.stateAbbr}</div>
+                            <div className="text-[11px] text-slate-500">{place.state}</div>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              updateField('state', place.stateAbbr);
+                              updateField('city', place.city);
+                              updateField('zipCode', zipInput);
+                              setCityInput(place.city);
+                            }}
+                            className="px-3 py-1.5 bg-emerald-600 text-white rounded-lg text-xs font-bold hover:bg-emerald-700 transition"
+                          >
+                            Set Location
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* SEARCH RADIUS SLIDER */}
+              <div className="pt-4 border-t border-slate-200">
+                <div className="flex justify-between items-center mb-2">
+                  <label className="text-xs font-bold text-slate-700 uppercase">
+                    Search Radius: <span className="text-blue-600 font-black">{criteria.radiusMiles} Miles</span>
+                  </label>
+                  <span className="text-xs text-slate-400">Allowed: 1 – 100 mi</span>
+                </div>
+                <input
+                  type="range"
+                  min={1}
+                  max={100}
+                  value={criteria.radiusMiles}
+                  onChange={(e) => updateField('radiusMiles', Number(e.target.value))}
+                  className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-600"
+                />
+              </div>
+
+              {/* Active Selection Badge */}
+              <div className="p-3 bg-blue-50 rounded-xl border border-blue-200 flex items-center justify-between text-xs text-blue-900">
+                <span>Active Target: <strong>{criteria.city}, {criteria.state}</strong> {criteria.zipCode ? `(${criteria.zipCode})` : ''}</span>
+                <span className="font-bold text-blue-700">{criteria.radiusMiles} mi radius</span>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ========================================================= */}
+        {/* STOP 4: LIFESTYLE PERSONA FORK                            */}
+        {/* ========================================================= */}
+        {currentStopIndex === 3 && (
           <div className="space-y-4 animate-in fade-in duration-200">
             <p className="text-sm text-slate-600 font-medium">
               Select your persona. The algorithm will fork the subsequent train stop to ask specialized questions tailored exclusively to your scenario:
@@ -239,8 +595,10 @@ export function QuestionnaireModal({
           </div>
         )}
 
-        {/* STOP 3: DYNAMIC PERSONA BRANCH */}
-        {currentStopIndex === 2 && (
+        {/* ========================================================= */}
+        {/* STOP 5: DYNAMIC PERSONA BRANCH                            */}
+        {/* ========================================================= */}
+        {currentStopIndex === 4 && (
           <div className="space-y-6 animate-in fade-in duration-200">
             {criteria.persona === 'family' && (
               <div className="space-y-4">
@@ -293,7 +651,7 @@ export function QuestionnaireModal({
                       updateField('workAddress', e.target.value);
                       updateField('commutePriorities', { ...criteria.commutePriorities!, workAddress: e.target.value });
                     }}
-                    placeholder="e.g. 500 W 2nd St, Austin, TX (or employer campus)"
+                    placeholder={`e.g. Downtown ${criteria.city} / Tech campus`}
                     className="w-full px-4 py-3 rounded-xl border border-slate-300 font-medium text-slate-800"
                   />
                 </div>
@@ -384,8 +742,10 @@ export function QuestionnaireModal({
           </div>
         )}
 
-        {/* STOP 4: AFFORDABILITY ENGINE (Exact Specification) */}
-        {currentStopIndex === 3 && (
+        {/* ========================================================= */}
+        {/* STOP 6: AFFORDABILITY ENGINE (Exact Specification)        */}
+        {/* ========================================================= */}
+        {currentStopIndex === 5 && (
           <div className="space-y-6 animate-in fade-in duration-200">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
               <div>
@@ -424,7 +784,7 @@ export function QuestionnaireModal({
 
               <div>
                 <label className="block text-xs font-bold text-slate-700 uppercase mb-2">
-                  Max Monthly Mortgage Budget ($) (Default: $3,000)
+                  Max Monthly {criteria.intent === 'buy' ? 'Mortgage Budget' : 'Rent Budget'} ($)
                 </label>
                 <div className="relative">
                   <DollarSign className="absolute left-3.5 top-3.5 w-5 h-5 text-slate-400" />
@@ -440,7 +800,7 @@ export function QuestionnaireModal({
                 {isMortgageAbove36Percent && (
                   <div className="mt-2 flex items-center gap-1.5 text-xs text-amber-700 bg-amber-50 p-2.5 rounded-lg border border-amber-200">
                     <AlertTriangle className="w-4 h-4 flex-shrink-0" />
-                    <span>Warning: Desired mortgage exceeds 36% of gross income ($2,880).</span>
+                    <span>Warning: Desired budget exceeds 36% of gross income.</span>
                   </div>
                 )}
               </div>
@@ -478,7 +838,7 @@ export function QuestionnaireModal({
                   ${criteria.calculatedMaxPrice.toLocaleString()}
                 </div>
                 <div className="text-xs text-slate-300">
-                  Includes 2% TX Property Tax + 0.5% Ins + PMI
+                  Includes 2% Property Tax + 0.5% Ins + PMI
                 </div>
               </div>
               <p className="text-xs text-blue-100">
@@ -488,8 +848,10 @@ export function QuestionnaireModal({
           </div>
         )}
 
-        {/* STOP 5: PROPERTY HARD REQUIREMENTS */}
-        {currentStopIndex === 4 && (
+        {/* ========================================================= */}
+        {/* STOP 7: PROPERTY HARD REQUIREMENTS                       */}
+        {/* ========================================================= */}
+        {currentStopIndex === 6 && (
           <div className="space-y-6 animate-in fade-in duration-200">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
@@ -587,8 +949,10 @@ export function QuestionnaireModal({
           </div>
         )}
 
-        {/* STOP 6: SOFT PREFERENCES & WEIGHTAGE */}
-        {currentStopIndex === 5 && (
+        {/* ========================================================= */}
+        {/* STOP 8: SOFT PREFERENCES & WEIGHTAGE                      */}
+        {/* ========================================================= */}
+        {currentStopIndex === 7 && (
           <div className="space-y-6 animate-in fade-in duration-200">
             <p className="text-xs text-slate-500 font-medium">
               Soft preferences won't eliminate homes from results; they lower or raise the Dream Score. Customize weightages below:
@@ -649,8 +1013,10 @@ export function QuestionnaireModal({
           </div>
         )}
 
-        {/* STOP 7: OFFLINE SEARCH & NOTIFY */}
-        {currentStopIndex === 6 && (
+        {/* ========================================================= */}
+        {/* STOP 9: OFFLINE SEARCH & NOTIFY                           */}
+        {/* ========================================================= */}
+        {currentStopIndex === 8 && (
           <div className="space-y-6 animate-in fade-in duration-200">
             <div className="p-5 rounded-2xl border-2 border-indigo-200 bg-indigo-50/50 space-y-4">
               <label className="flex items-start gap-3 cursor-pointer">
@@ -689,7 +1055,8 @@ export function QuestionnaireModal({
             {/* Quick Summary of Search */}
             <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 text-xs text-slate-600 space-y-1">
               <div className="font-bold text-slate-800">Search Parameter Summary:</div>
-              <div>• Destination: {criteria.city}, {criteria.state} ({criteria.radiusMiles} mi radius)</div>
+              <div>• Transaction: <strong className="uppercase">{criteria.intent}</strong></div>
+              <div>• Target Area: {criteria.city}, {criteria.state} {criteria.zipCode ? `(${criteria.zipCode})` : ''} ({criteria.radiusMiles} mi radius)</div>
               <div>• Max Budget Ceiling: <span className="font-bold text-emerald-600">${criteria.calculatedMaxPrice.toLocaleString()}</span></div>
               <div>• Criteria Minimums: {criteria.bedrooms} Beds, {criteria.bathrooms} Baths, {criteria.minSqFt} sqft</div>
               <div>• Minimum Score Threshold: 80% Dream Match</div>

@@ -5,7 +5,10 @@ export type HouseType = 'Single Family' | 'Townhouse' | 'Condo' | 'Multi-Family'
 export interface SearchCriteria {
   id?: string;
   name?: string;
-  // Train Stop 1: Location & Region
+  // Train Stop 1: Transaction Intent
+  intent: 'buy' | 'rent';
+
+  // Train Stop 2 & 3: Location & Region
   state: string;
   city: string;
   zipCode: string;

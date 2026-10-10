@@ -83,7 +83,7 @@ export default function HomePage() {
 
     const newSaved: SavedSearchItem = {
       id: 'search-' + Date.now(),
-      name: `${criteria.city} ${criteria.persona.toUpperCase()} Journey ($${criteria.calculatedMaxPrice.toLocaleString()} Cap)`,
+      name: `${criteria.city}, ${criteria.state} (${criteria.intent.toUpperCase()}) • $${criteria.calculatedMaxPrice.toLocaleString()} Cap`,
       createdAt: new Date().toISOString(),
       userEmail: user.email,
       criteria: { ...criteria },
@@ -101,9 +101,9 @@ export default function HomePage() {
   const handleLoadCriteria = (loaded: SearchCriteria) => {
     setCriteria(loaded);
     setCurrentStopIndex(0);
-    setVisitedStops([0, 1, 2, 3, 4, 5, 6]);
+    setVisitedStops([0, 1, 2, 3, 4, 5, 6, 7, 8]);
     setIsQuestionnaireOpen(false);
-    showToast(`Loaded "${loaded.city}" search criteria!`);
+    showToast(`Loaded "${loaded.city}, ${loaded.state}" search criteria!`);
   };
 
   // Clone Criteria workflow (as requested by user to branch out from prior search)
@@ -113,8 +113,8 @@ export default function HomePage() {
       name: `Clone of ${item.name}`,
     };
     setCriteria(cloned);
-    setCurrentStopIndex(1); // Jump straight to Persona fork to create a new branch!
-    setVisitedStops([0, 1]);
+    setCurrentStopIndex(3); // Jump straight to Persona fork (Stop 4) to create a new branch!
+    setVisitedStops([0, 1, 2, 3]);
     setIsQuestionnaireOpen(true);
     setIsSavedModalOpen(false);
     showToast(`Cloned criteria! Choose a new branch or modify parameters.`);

@@ -41,7 +41,7 @@ export function Header({
               </span>
             </div>
             <p className="text-xs text-slate-500 hidden md:block">
-              Branching Lifestyle Home Finder &bull; Affordability Ceiling: <span className="font-semibold text-emerald-600">${criteria.calculatedMaxPrice.toLocaleString()}</span>
+              <span className="uppercase font-bold text-blue-600">{criteria.intent}</span> in {criteria.city}, {criteria.state} &bull; Budget Ceiling: <span className="font-semibold text-emerald-600">${criteria.calculatedMaxPrice.toLocaleString()}</span>
             </p>
           </div>
         </div>

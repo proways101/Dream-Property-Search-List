@@ -13,25 +13,41 @@ export interface TrainStopDefinition {
 
 export const TRAIN_STOPS: TrainStopDefinition[] = [
   {
-    id: 'origin_location',
+    id: 'intent',
     stepNumber: 1,
-    title: 'Stop 1: Journey Origin & Geographic Perimeter',
-    shortLabel: 'Location',
-    subtitle: 'Where is your dream centered?',
+    title: 'Stop 1: Transaction Intent',
+    shortLabel: 'Buy / Rent',
+    subtitle: 'Are you planning to Buy or Rent?',
+    iconName: 'Key',
+  },
+  {
+    id: 'state_selection',
+    stepNumber: 2,
+    title: 'Stop 2: Target State & Territory',
+    shortLabel: 'State',
+    subtitle: 'Which State are you planning to Buy or Rent in?',
+    iconName: 'Globe',
+  },
+  {
+    id: 'city_zipcode',
+    stepNumber: 3,
+    title: 'Stop 3: Target City or Zipcode',
+    shortLabel: 'City / Zip',
+    subtitle: 'Which City or Zipcode? Cities filtered strictly to your state.',
     iconName: 'MapPin',
   },
   {
     id: 'lifestyle_persona',
-    stepNumber: 2,
-    title: 'Stop 2: Lifestyle Persona & Buyer DNA',
+    stepNumber: 4,
+    title: 'Stop 4: Lifestyle Persona & Buyer DNA',
     shortLabel: 'Persona Fork',
     subtitle: 'Choose your journey path — dynamic branch ahead',
     iconName: 'GitFork',
   },
   {
     id: 'persona_branch',
-    stepNumber: 3,
-    title: 'Stop 3: Tailored Lifestyle Priorities',
+    stepNumber: 5,
+    title: 'Stop 5: Tailored Lifestyle Priorities',
     shortLabel: 'Tailored Needs',
     subtitle: 'Questions dynamically unlocked by your persona choice',
     iconName: 'Sparkles',
@@ -39,32 +55,32 @@ export const TRAIN_STOPS: TrainStopDefinition[] = [
   },
   {
     id: 'affordability_engine',
-    stepNumber: 4,
-    title: 'Stop 4: Affordability & True Price Ceiling',
+    stepNumber: 6,
+    title: 'Stop 6: Affordability & True Price Ceiling',
     shortLabel: 'Affordability',
     subtitle: 'Calculated with exact Texas property tax, PMI, and 28% DTI cap',
     iconName: 'DollarSign',
   },
   {
     id: 'property_specs',
-    stepNumber: 5,
-    title: 'Stop 5: Property Structure & Hard Requirements',
+    stepNumber: 7,
+    title: 'Stop 7: Property Structure & Hard Requirements',
     shortLabel: 'Home Specs',
     subtitle: 'Must-have bedrooms, baths, sq ft, and dwelling types',
     iconName: 'Home',
   },
   {
     id: 'lifestyle_weights',
-    stepNumber: 6,
-    title: 'Stop 6: Soft Preferences & Dream Weightage',
+    stepNumber: 8,
+    title: 'Stop 8: Soft Preferences & Dream Weightage',
     shortLabel: 'Weights & Match',
     subtitle: 'Assign custom percentage weights to rank your dream score',
     iconName: 'Sliders',
   },
   {
     id: 'offline_notify',
-    stepNumber: 7,
-    title: 'Stop 7: Offline Search & Daily Dream Alerts',
+    stepNumber: 9,
+    title: 'Stop 9: Offline Search & Daily Dream Alerts',
     shortLabel: 'Offline Alert',
     subtitle: 'Automated daily MLS batch matching for 90%+ properties',
     iconName: 'Bell',
@@ -72,16 +88,21 @@ export const TRAIN_STOPS: TrainStopDefinition[] = [
 ];
 
 export const DEFAULT_SEARCH_CRITERIA: SearchCriteria = {
-  // Stop 1
+  // Stop 1: Transaction Intent
+  intent: 'buy',
+
+  // Stop 2: State Selection
   state: 'TX',
+
+  // Stop 3: City or Zipcode & Radius
   city: 'Austin',
   zipCode: '',
   radiusMiles: 25,
 
-  // Stop 2
+  // Stop 4: Persona Fork
   persona: 'family',
 
-  // Stop 3 branches
+  // Stop 5: Persona branches
   familyPriorities: {
     mustHaveYard: true,
     quietStreet: true,
@@ -106,21 +127,21 @@ export const DEFAULT_SEARCH_CRITERIA: SearchCriteria = {
     downPaymentAssistance: false,
   },
 
-  // Stop 4 Affordability Defaults from Specification
+  // Stop 6: Affordability Defaults from Specification
   downPayment: 50000,
   monthlyIncome: 8000,
   maxMonthlyMortgage: 3000,
   creditScore: 720,
   calculatedMaxPrice: 378000,
 
-  // Stop 5 Defaults
+  // Stop 7: Property Specs
   bedrooms: 3,
   bathrooms: 2,
   minSqFt: 1500,
   houseTypes: ['Single Family', 'Townhouse'],
   maxHomeAge: 20,
 
-  // Stop 6 Soft Preferences
+  // Stop 8: Soft Preferences
   minSchoolRating: 6,
   maxCommuteMinutes: 45,
   workAddress: 'Austin, TX',
@@ -137,7 +158,7 @@ export const DEFAULT_SEARCH_CRITERIA: SearchCriteria = {
     recreation: 15,
   },
 
-  // Stop 7
+  // Stop 9: Offline notify
   offlineSearchNotify: false,
   userEmail: '',
 };
