@@ -63,7 +63,7 @@ export async function POST(request: NextRequest) {
     }
 
     params.append('status', 'Active');
-    params.append('limit', '50');
+    params.append('limit', '100');
 
     console.log(`Querying RentCast API: ${baseUrl}?${params.toString()}`);
 

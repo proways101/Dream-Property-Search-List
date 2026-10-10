@@ -44,22 +44,33 @@ function MapComponentInner({
     const mapContainer = document.getElementById('leaflet-dream-map');
     if (!mapContainer) return;
 
+    // Calculate centroid of properties or fallback
+    let centerLat = 30.2672;
+    let centerLng = -97.7431;
+    if (properties.length > 0) {
+      centerLat = properties.reduce((sum, p) => sum + (p.lat || 0), 0) / properties.length;
+      centerLng = properties.reduce((sum, p) => sum + (p.lng || 0), 0) / properties.length;
+    }
+
     // If map already initialized, reuse or re-center
     let map = (mapContainer as any)._leaflet_map;
     if (!map) {
       map = L.map('leaflet-dream-map', {
-        center: [30.2672, -97.7431], // Austin, TX
+        center: [centerLat, centerLng],
         zoom: 11,
         zoomControl: true,
       });
 
-      L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-        attribution: '&copy; <a href="https://carto.com/">CARTO</a> &copy; OpenStreetMap contributors',
+      // Free, clean, watermark-free OpenStreetMap basemap
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
         maxZoom: 19,
       }).addTo(map);
 
       (mapContainer as any)._leaflet_map = map;
       setMapInstance(map);
+    } else {
+      map.setView([centerLat, centerLng], map.getZoom() || 11);
     }
 
     // Clean up old markers
@@ -72,8 +83,8 @@ function MapComponentInner({
 
     const markerGroup = L.featureGroup();
 
-    // Draw search radius circle centered at Austin
-    const circle = L.circle([30.2672, -97.7431], {
+    // Draw search radius circle centered at the actual search location
+    const circle = L.circle([centerLat, centerLng], {
       color: '#3b82f6',
       fillColor: '#60a5fa',
       fillOpacity: 0.08,

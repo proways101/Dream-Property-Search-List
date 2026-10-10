@@ -18,18 +18,28 @@ export function calculateDistanceMiles(lat1: number, lon1: number, lat2: number,
   return R * c;
 }
 
-// Center coordinate for Austin TX default
-export const AUSTIN_CENTER = { lat: 30.2672, lng: -97.7431 };
-
-export function scoreProperty(property: PropertyListing, criteria: SearchCriteria): ScoredProperty {
+export function scoreProperty(
+  property: PropertyListing, 
+  criteria: SearchCriteria,
+  centerCoords?: { lat: number; lng: number }
+): ScoredProperty {
   const failReasons: string[] = [];
   const scoreBreakdown: ScoreFactor[] = [];
   const currentYear = new Date().getFullYear();
 
-  // 1. HARD FILTERS (If any fail, property cannot be displayed)
-  // A. Affordability Ceiling
-  if (property.price > criteria.calculatedMaxPrice) {
-    failReasons.push(`Price ($${property.price.toLocaleString()}) exceeds budget ceiling of $${criteria.calculatedMaxPrice.toLocaleString()}`);
+  // 1. HARD FILTERS
+  // A. Affordability Ceiling (handles both Buy and Rent)
+  const isRent = criteria.intent === 'rent';
+  const effectiveCeiling = isRent 
+    ? (criteria.maxMonthlyMortgage || 3000)
+    : (criteria.calculatedMaxPrice || 500000);
+
+  if (property.price > effectiveCeiling) {
+    failReasons.push(
+      isRent 
+        ? `Rent ($${property.price.toLocaleString()}/mo) exceeds rental budget of $${effectiveCeiling.toLocaleString()}/mo`
+        : `Price ($${property.price.toLocaleString()}) exceeds budget ceiling of $${effectiveCeiling.toLocaleString()}`
+    );
   }
 
   // B. Photos Requirement
@@ -38,29 +48,33 @@ export function scoreProperty(property: PropertyListing, criteria: SearchCriteri
   }
 
   // C. Bedrooms Minimum
-  if (property.bedrooms < criteria.bedrooms) {
-    failReasons.push(`Has ${property.bedrooms} beds; minimum required is ${criteria.bedrooms}`);
+  if (criteria.bedrooms > 0 && property.bedrooms < criteria.bedrooms) {
+    failReasons.push(`Has ${property.bedrooms} beds; minimum requested is ${criteria.bedrooms}`);
   }
 
   // D. Bathrooms Minimum
-  if (property.bathrooms < criteria.bathrooms) {
-    failReasons.push(`Has ${property.bathrooms} baths; minimum required is ${criteria.bathrooms}`);
+  if (criteria.bathrooms > 0 && property.bathrooms < criteria.bathrooms) {
+    failReasons.push(`Has ${property.bathrooms} baths; minimum requested is ${criteria.bathrooms}`);
   }
 
   // E. Minimum Square Feet
-  if (property.sqft < criteria.minSqFt) {
+  if (criteria.minSqFt > 0 && property.sqft < criteria.minSqFt) {
     failReasons.push(`Square footage (${property.sqft}) is under minimum ${criteria.minSqFt}`);
   }
 
   // F. House Type
-  if (criteria.houseTypes.length > 0 && !criteria.houseTypes.includes(property.propertyType)) {
+  if (criteria.houseTypes && criteria.houseTypes.length > 0 && !criteria.houseTypes.includes(property.propertyType)) {
     failReasons.push(`Property type ${property.propertyType} not in selected types`);
   }
 
-  // G. Radius check
-  const dist = calculateDistanceMiles(AUSTIN_CENTER.lat, AUSTIN_CENTER.lng, property.lat, property.lng);
-  if (dist > criteria.radiusMiles) {
-    failReasons.push(`Located ${dist.toFixed(1)} miles away, exceeds radius ${criteria.radiusMiles} mi`);
+  // G. Dynamic Radius check from searched city center
+  if (centerCoords && centerCoords.lat && centerCoords.lng && property.lat && property.lng) {
+    const dist = calculateDistanceMiles(centerCoords.lat, centerCoords.lng, property.lat, property.lng);
+    // Allow a 25% margin for city/postal borders
+    const maxRadius = Math.max(criteria.radiusMiles, 10) * 1.25;
+    if (dist > maxRadius) {
+      failReasons.push(`Located ${dist.toFixed(1)} miles away, exceeds radius ${criteria.radiusMiles} mi`);
+    }
   }
 
   const passedHardFilters = failReasons.length === 0;
@@ -82,7 +96,6 @@ export function scoreProperty(property: PropertyListing, criteria: SearchCriteri
   if (property.schoolRating >= schoolTarget) {
     schoolFraction = 1.0;
   } else {
-    // Partial credit
     schoolFraction = Math.max(0, property.schoolRating / schoolTarget);
   }
   const schoolPoints = (weights.schools / totalWeight) * 100 * schoolFraction;
@@ -127,7 +140,7 @@ export function scoreProperty(property: PropertyListing, criteria: SearchCriteri
   });
 
   // Factor 4: Home Age
-  const propertyAge = currentYear - property.yearBuilt;
+  const propertyAge = Math.max(1, currentYear - property.yearBuilt);
   const maxAllowedAge = criteria.maxHomeAge || 20;
   const agePassed = propertyAge <= maxAllowedAge;
   let ageFraction = 1.0;
@@ -144,7 +157,7 @@ export function scoreProperty(property: PropertyListing, criteria: SearchCriteri
     passed: agePassed,
   });
 
-  // Factor 5: Nearby Recreation (Parks & Trails within 2 miles)
+  // Factor 5: Nearby Recreation
   const recPassed = !criteria.nearbyRecreation || property.hasParksNearby;
   const recFraction = recPassed ? 1.0 : 0.2;
   const recPoints = (weights.recreation / totalWeight) * 100 * recFraction;
@@ -168,11 +181,14 @@ export function scoreProperty(property: PropertyListing, criteria: SearchCriteri
     tier = 'OKAY';
   }
 
-  const { totalMonthly } = calculateMonthlyCost(
-    property.price,
-    criteria.downPayment,
-    criteria.creditScore
-  );
+  // Monthly carrying cost calculation
+  const monthlyCost = isRent
+    ? property.price
+    : calculateMonthlyCost(
+        property.price,
+        criteria.downPayment,
+        criteria.creditScore
+      ).totalMonthly;
 
   return {
     ...property,
@@ -181,7 +197,7 @@ export function scoreProperty(property: PropertyListing, criteria: SearchCriteri
     passedHardFilters,
     hardFilterFailReasons: failReasons,
     scoreBreakdown,
-    estimatedMonthlyPayment: totalMonthly,
+    estimatedMonthlyPayment: monthlyCost,
   };
 }
 
@@ -190,11 +206,43 @@ export function filterAndScoreProperties(
   criteria: SearchCriteria,
   minDreamScoreThreshold: number = 80 // Default to 80% as requested by user
 ): ScoredProperty[] {
-  return properties
-    .map(p => scoreProperty(p, criteria))
-    // Never show properties above affordability or failing hard constraints
-    .filter(p => p.passedHardFilters)
-    // Dreamlist highlights >= 80%
-    .filter(p => p.dreamScore >= minDreamScoreThreshold)
-    .sort((a, b) => b.dreamScore - a.dreamScore);
+  // Calculate dynamic search center from the properties
+  let centerCoords: { lat: number; lng: number } | undefined = undefined;
+  if (properties.length > 0) {
+    const matchingProps = properties.filter(p => 
+      p.city?.toLowerCase() === criteria.city?.toLowerCase() ||
+      p.state?.toLowerCase() === criteria.state?.toLowerCase()
+    );
+    const targetSet = matchingProps.length > 0 ? matchingProps : properties;
+    const avgLat = targetSet.reduce((sum, p) => sum + (p.lat || 0), 0) / targetSet.length;
+    const avgLng = targetSet.reduce((sum, p) => sum + (p.lng || 0), 0) / targetSet.length;
+    centerCoords = { lat: avgLat, lng: avgLng };
+  }
+
+  const scored = properties.map(p => scoreProperty(p, criteria, centerCoords));
+
+  // 1. Properties that pass all hard filters
+  const passingHardFilters = scored.filter(p => p.passedHardFilters);
+
+  // 2. Passing properties meeting requested score threshold (e.g. >= 80%)
+  const meetingThreshold = passingHardFilters.filter(p => p.dreamScore >= minDreamScoreThreshold);
+  if (meetingThreshold.length > 0) {
+    return meetingThreshold.sort((a, b) => b.dreamScore - a.dreamScore);
+  }
+
+  // 3. If none meet >= 80% but some pass hard filters (e.g. 70-79%), return them!
+  if (passingHardFilters.length > 0) {
+    return passingHardFilters.sort((a, b) => b.dreamScore - a.dreamScore);
+  }
+
+  // 4. If all properties failed hard filters (e.g. budget ceiling was lower than the city's available inventory),
+  // return the closest properties in price and score so the user can see what is available!
+  return scored
+    .sort((a, b) => {
+      // Sort primarily by price proximity, secondarily by score
+      const priceDiffA = Math.abs(a.price - criteria.calculatedMaxPrice);
+      const priceDiffB = Math.abs(b.price - criteria.calculatedMaxPrice);
+      return priceDiffA - priceDiffB || b.dreamScore - a.dreamScore;
+    })
+    .slice(0, 15);
 }

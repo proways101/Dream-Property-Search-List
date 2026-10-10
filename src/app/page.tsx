@@ -61,9 +61,12 @@ export default function HomePage() {
     } catch (e) {
       console.error('Storage error', e);
     }
-
-    fetchLiveListings(DEFAULT_SEARCH_CRITERIA);
   }, []);
+
+  // Automatically fetch live MLS listings whenever location or transaction intent changes
+  useEffect(() => {
+    fetchLiveListings(criteria);
+  }, [criteria.city, criteria.state, criteria.zipCode, criteria.intent]);
 
   const fetchLiveListings = async (searchParams: SearchCriteria) => {
     setIsLoadingListings(true);
