@@ -8,3 +8,4 @@ out
 extracted_spec.txt
 
 .vercel
+.env*.local

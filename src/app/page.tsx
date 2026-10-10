@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { SearchCriteria, ScoredProperty, UserProfile, SavedSearchItem } from '@/types';
+import { SearchCriteria, ScoredProperty, UserProfile, SavedSearchItem, PropertyListing } from '@/types';
 import { DEFAULT_SEARCH_CRITERIA, updateCriteriaAffordability, TRAIN_STOPS } from '@/lib/branchingEngine';
 import { MOCK_MLS_LISTINGS } from '@/data/mockListings';
 import { filterAndScoreProperties } from '@/lib/scoringEngine';
@@ -42,7 +42,12 @@ export default function HomePage() {
   const [isSavedModalOpen, setIsSavedModalOpen] = useState<boolean>(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
-  // Initialize from localStorage
+  // Live MLS data state
+  const [rawListings, setRawListings] = useState<PropertyListing[]>(MOCK_MLS_LISTINGS);
+  const [dataSource, setDataSource] = useState<string>('mock_dataset');
+  const [isLoadingListings, setIsLoadingListings] = useState<boolean>(false);
+
+  // Initialize from localStorage and fetch live listings
   useEffect(() => {
     try {
       const storedUser = localStorage.getItem('dream_user');
@@ -56,7 +61,33 @@ export default function HomePage() {
     } catch (e) {
       console.error('Storage error', e);
     }
+
+    fetchLiveListings(DEFAULT_SEARCH_CRITERIA);
   }, []);
+
+  const fetchLiveListings = async (searchParams: SearchCriteria) => {
+    setIsLoadingListings(true);
+    try {
+      const res = await fetch('/api/properties/search', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(searchParams),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.listings && data.listings.length > 0) {
+          setRawListings(data.listings);
+          setDataSource(data.source);
+          return data.listings;
+        }
+      }
+    } catch (err) {
+      console.error('Error querying properties API:', err);
+    } finally {
+      setIsLoadingListings(false);
+    }
+    return rawListings;
+  };
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -65,13 +96,15 @@ export default function HomePage() {
 
   // Filter & Score MLS Listings based on criteria memory
   const scoredResults = useMemo(() => {
-    return filterAndScoreProperties(MOCK_MLS_LISTINGS, criteria, minScoreThreshold);
-  }, [criteria, minScoreThreshold]);
+    return filterAndScoreProperties(rawListings, criteria, minScoreThreshold);
+  }, [rawListings, criteria, minScoreThreshold]);
 
   // Handle Search Execution
-  const handleExecuteSearch = () => {
+  const handleExecuteSearch = async () => {
     setIsQuestionnaireOpen(false);
-    showToast(`Found ${scoredResults.length} properties meeting ≥${minScoreThreshold}% Dream Score!`);
+    const updatedListings = await fetchLiveListings(criteria);
+    const scored = filterAndScoreProperties(updatedListings || rawListings, criteria, minScoreThreshold);
+    showToast(`Found ${scored.length} properties meeting ≥${minScoreThreshold}% Dream Score!`);
   };
 
   // Save Criteria workflow (enforces Gmail OAuth as requested by user)
@@ -240,10 +273,26 @@ export default function HomePage() {
 
                 <div className="h-5 w-[1px] bg-slate-200 hidden md:block" />
 
-                <div className="text-xs text-slate-600 font-medium">
-                  Matches: <span className="font-black text-slate-900">{scoredResults.length} homes</span> &bull; 
-                  Ceiling: <span className="font-bold text-emerald-600">${criteria.calculatedMaxPrice.toLocaleString()}</span> &bull; 
-                  Radius: <span className="font-bold">{criteria.radiusMiles} mi</span>
+                <div className="text-xs text-slate-600 font-medium flex items-center gap-2 flex-wrap">
+                  <span>Matches: <strong className="text-slate-900">{scoredResults.length} homes</strong></span>
+                  <span>&bull;</span>
+                  <span>Ceiling: <strong className="text-emerald-600">${criteria.calculatedMaxPrice.toLocaleString()}</strong></span>
+                  <span>&bull;</span>
+                  {dataSource === 'rentcast_live' ? (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-bold">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 animate-pulse"></span>
+                      Live RentCast MLS
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 text-[10px] font-medium">
+                      MLS Feed
+                    </span>
+                  )}
+                  {isLoadingListings && (
+                    <span className="text-[10px] text-blue-600 animate-pulse font-bold">
+                      (Refreshing live data...)
+                    </span>
+                  )}
                 </div>
               </div>
 
