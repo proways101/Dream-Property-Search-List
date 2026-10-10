@@ -2,33 +2,21 @@
 
 import React from 'react';
 import { TRAIN_STOPS, TrainStopDefinition } from '@/lib/branchingEngine';
-import { Check, Train, GitFork, ArrowRight } from 'lucide-react';
+import { Check, Train, ArrowRight } from 'lucide-react';
 import { PersonaType } from '@/types';
 
 interface TrainLineStepperProps {
   currentStopIndex: number;
   visitedStops: number[];
   onSelectStop: (stopIndex: number) => void;
-  selectedPersona: PersonaType;
+  selectedPersona?: PersonaType;
 }
 
 export function TrainLineStepper({
   currentStopIndex,
   visitedStops,
   onSelectStop,
-  selectedPersona
 }: TrainLineStepperProps) {
-  const getPersonaBadge = (persona: PersonaType) => {
-    switch (persona) {
-      case 'family': return 'Family Haven Line';
-      case 'relocating': return 'Commuter Express Line';
-      case 'investor': return 'Yield Investor Line';
-      case 'retiree': return 'Single-Story Oasis Line';
-      case 'first_time': return 'First-Time Buyer Line';
-      default: return 'Custom Lifestyle Line';
-    }
-  };
-
   return (
     <div className="w-full bg-slate-900 text-white p-4 md:p-6 rounded-2xl shadow-xl border border-slate-800">
       {/* Top Header & Branch Tag */}
@@ -39,18 +27,12 @@ export function TrainLineStepper({
           </div>
           <div>
             <div className="text-xs uppercase tracking-wider font-semibold text-blue-400">
-              Interactive Branching Navigator
+              Interactive Property Search
             </div>
             <h2 className="text-base md:text-lg font-bold text-white">
-              Dream Property Transit Line
+              Find My Dream Property
             </h2>
           </div>
-        </div>
-
-        <div className="flex items-center gap-2 bg-slate-800/80 px-3 py-1.5 rounded-full border border-slate-700 text-xs">
-          <GitFork className="w-3.5 h-3.5 text-emerald-400" />
-          <span className="text-slate-400">Active Fork:</span>
-          <span className="font-semibold text-emerald-400">{getPersonaBadge(selectedPersona)}</span>
         </div>
       </div>
 
