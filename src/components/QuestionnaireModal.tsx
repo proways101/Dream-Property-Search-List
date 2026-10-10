@@ -72,15 +72,34 @@ export function QuestionnaireModal({
   // Helper to update criteria and recompute price ceiling
   const updateField = <K extends keyof SearchCriteria>(key: K, value: SearchCriteria[K]) => {
     const updated = { ...criteria, [key]: value };
-    // If financial fields change, recalculate price ceiling
-    if (['downPayment', 'monthlyIncome', 'maxMonthlyMortgage', 'creditScore'].includes(key as string)) {
-      const { maxPrice } = calculateMaxHomePrice(
-        updated.downPayment,
-        updated.monthlyIncome,
-        updated.maxMonthlyMortgage,
-        updated.creditScore
-      );
-      updated.calculatedMaxPrice = maxPrice;
+
+    if (key === 'intent') {
+      if (value === 'rent') {
+        if (updated.maxMonthlyMortgage > 6000) {
+          updated.maxMonthlyMortgage = 2500;
+        }
+        updated.calculatedMaxPrice = updated.maxMonthlyMortgage || 2500;
+      } else {
+        const { maxPrice } = calculateMaxHomePrice(
+          updated.downPayment,
+          updated.monthlyIncome,
+          updated.maxMonthlyMortgage,
+          updated.creditScore
+        );
+        updated.calculatedMaxPrice = maxPrice;
+      }
+    } else if (['downPayment', 'monthlyIncome', 'maxMonthlyMortgage', 'creditScore'].includes(key as string)) {
+      if (updated.intent === 'rent') {
+        updated.calculatedMaxPrice = updated.maxMonthlyMortgage || 2500;
+      } else {
+        const { maxPrice } = calculateMaxHomePrice(
+          updated.downPayment,
+          updated.monthlyIncome,
+          updated.maxMonthlyMortgage,
+          updated.creditScore
+        );
+        updated.calculatedMaxPrice = maxPrice;
+      }
     }
     onChangeCriteria(updated);
   };
@@ -177,11 +196,19 @@ export function QuestionnaireModal({
           <h2 className="text-xl md:text-2xl font-black">
             {currentStopIndex === 1
               ? (criteria.intent === 'buy' ? 'Stop 2: Which State are you planning to Buy?' : 'Stop 2: Which State are you planning to Rent?')
+              : currentStopIndex === 5 && criteria.intent === 'rent'
+              ? 'Stop 6: Rental Affordability & Unit Requirements'
+              : currentStopIndex === 6 && criteria.intent === 'rent'
+              ? 'Stop 7: Rental Amenities & Square Footage'
               : currentStop.title}
           </h2>
           <p className="text-sm text-slate-300 mt-1">
             {currentStopIndex === 1
               ? `Select from all 50 US States and Territories for your ${criteria.intent.toUpperCase()} search.`
+              : currentStopIndex === 5 && criteria.intent === 'rent'
+              ? 'Fine-tune your rental search with your monthly income, rent budget, bedrooms, and bathrooms.'
+              : currentStopIndex === 6 && criteria.intent === 'rent'
+              ? 'Refine your minimum square footage, building types, and property preferences.'
               : currentStop.subtitle}
           </p>
         </div>
@@ -743,109 +770,303 @@ export function QuestionnaireModal({
         )}
 
         {/* ========================================================= */}
-        {/* STOP 6: AFFORDABILITY ENGINE (Exact Specification)        */}
+        {/* STOP 6: AFFORDABILITY ENGINE (BUY VS RENT DIVERGENCE)     */}
         {/* ========================================================= */}
         {currentStopIndex === 5 && (
-          <div className="space-y-6 animate-in fade-in duration-200">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-              <div>
-                <label className="block text-xs font-bold text-slate-700 uppercase mb-2">
-                  Down Payment ($) (Specification default: $50,000)
-                </label>
-                <div className="relative">
-                  <DollarSign className="absolute left-3.5 top-3.5 w-5 h-5 text-slate-400" />
-                  <input
-                    type="number"
-                    min={0}
-                    step={1000}
-                    value={criteria.downPayment}
-                    onChange={(e) => updateField('downPayment', Number(e.target.value))}
-                    className="w-full pl-10 pr-4 py-3 rounded-xl border border-slate-300 font-bold text-slate-800"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-700 uppercase mb-2">
-                  Gross Monthly Income ($) (Default: $8,000)
-                </label>
-                <div className="relative">
-                  <DollarSign className="absolute left-3.5 top-3.5 w-5 h-5 text-slate-400" />
-                  <input
-                    type="number"
-                    min={1000}
-                    step={500}
-                    value={criteria.monthlyIncome}
-                    onChange={(e) => updateField('monthlyIncome', Number(e.target.value))}
-                    className="w-full pl-10 pr-4 py-3 rounded-xl border border-slate-300 font-bold text-slate-800"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-700 uppercase mb-2">
-                  Max Monthly {criteria.intent === 'buy' ? 'Mortgage Budget' : 'Rent Budget'} ($)
-                </label>
-                <div className="relative">
-                  <DollarSign className="absolute left-3.5 top-3.5 w-5 h-5 text-slate-400" />
-                  <input
-                    type="number"
-                    min={500}
-                    step={100}
-                    value={criteria.maxMonthlyMortgage}
-                    onChange={(e) => updateField('maxMonthlyMortgage', Number(e.target.value))}
-                    className="w-full pl-10 pr-4 py-3 rounded-xl border border-slate-300 font-bold text-slate-800"
-                  />
-                </div>
-                {isMortgageAbove36Percent && (
-                  <div className="mt-2 flex items-center gap-1.5 text-xs text-amber-700 bg-amber-50 p-2.5 rounded-lg border border-amber-200">
-                    <AlertTriangle className="w-4 h-4 flex-shrink-0" />
-                    <span>Warning: Desired budget exceeds 36% of gross income.</span>
-                  </div>
-                )}
-              </div>
-
-              <div>
-                <div className="flex justify-between items-center mb-2">
-                  <label className="text-xs font-bold text-slate-700 uppercase">
-                    Credit Score: <span className="text-blue-600 font-black">{criteria.creditScore}</span>
+          criteria.intent === 'rent' ? (
+            /* RENT-SPECIFIC STOP 6 */
+            <div className="space-y-6 animate-in fade-in duration-200">
+              {/* Financial Inputs: Income and Rental Budget */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase mb-2">
+                    Gross Monthly Income ($)
                   </label>
-                  <span className="text-xs font-medium text-emerald-600">Rate: {currentInterestRate}% APR</span>
+                  <div className="relative">
+                    <DollarSign className="absolute left-3.5 top-3.5 w-5 h-5 text-slate-400" />
+                    <input
+                      type="number"
+                      min={1000}
+                      step={250}
+                      value={criteria.monthlyIncome}
+                      onChange={(e) => updateField('monthlyIncome', Number(e.target.value))}
+                      className="w-full pl-10 pr-4 py-3 rounded-xl border border-slate-300 font-bold text-slate-800 focus:ring-2 focus:ring-emerald-500"
+                    />
+                  </div>
+                  <p className="mt-1.5 text-[11px] text-slate-500">
+                    Standard 3x guideline allows up to <strong className="text-emerald-700">${Math.round(criteria.monthlyIncome / 3).toLocaleString()}/mo</strong> for rent.
+                  </p>
                 </div>
-                <input
-                  type="range"
-                  min={300}
-                  max={850}
-                  value={criteria.creditScore}
-                  onChange={(e) => updateField('creditScore', Number(e.target.value))}
-                  className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-600"
-                />
-                <div className="flex justify-between text-[11px] text-slate-400 mt-1">
-                  <span>300 (Challenged)</span>
-                  <span>720 (Default)</span>
-                  <span>850 (Exceptional)</span>
-                </div>
-              </div>
-            </div>
 
-            {/* Calculated Affordability Ceiling Box */}
-            <div className="p-5 bg-gradient-to-br from-blue-900 to-indigo-900 rounded-2xl text-white shadow-lg space-y-2">
-              <div className="text-xs uppercase font-bold tracking-wider text-blue-300">
-                Specification Price Ceiling Guarantee
-              </div>
-              <div className="flex flex-wrap items-baseline justify-between gap-2">
-                <div className="text-3xl font-black text-emerald-400">
-                  ${criteria.calculatedMaxPrice.toLocaleString()}
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase mb-2">
+                    Max Monthly Rental Budget ($)
+                  </label>
+                  <div className="relative">
+                    <DollarSign className="absolute left-3.5 top-3.5 w-5 h-5 text-slate-400" />
+                    <input
+                      type="number"
+                      min={500}
+                      max={15000}
+                      step={50}
+                      value={criteria.maxMonthlyMortgage}
+                      onChange={(e) => updateField('maxMonthlyMortgage', Number(e.target.value))}
+                      className="w-full pl-10 pr-4 py-3 rounded-xl border border-slate-300 font-bold text-slate-800 focus:ring-2 focus:ring-emerald-500"
+                    />
+                  </div>
+
+                  {/* Quick Budget Selection Chips */}
+                  <div className="flex flex-wrap gap-1.5 mt-2">
+                    {[1500, 2000, 2500, 3000, 3500, 4500].map((b) => (
+                      <button
+                        key={b}
+                        type="button"
+                        onClick={() => updateField('maxMonthlyMortgage', b)}
+                        className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition border ${
+                          criteria.maxMonthlyMortgage === b
+                            ? 'bg-emerald-600 text-white border-emerald-600'
+                            : 'bg-slate-100 text-slate-700 hover:bg-slate-200 border-slate-200'
+                        }`}
+                      >
+                        ${b.toLocaleString()}
+                      </button>
+                    ))}
+                  </div>
+
+                  {criteria.maxMonthlyMortgage > (criteria.monthlyIncome * 0.40) && (
+                    <div className="mt-2 flex items-center gap-1.5 text-xs text-amber-700 bg-amber-50 p-2.5 rounded-lg border border-amber-200">
+                      <AlertTriangle className="w-4 h-4 flex-shrink-0" />
+                      <span>Note: Rental budget exceeds 40% of gross monthly income. Landlords may require a co-signer.</span>
+                    </div>
+                  )}
                 </div>
-                <div className="text-xs text-slate-300">
-                  Includes 2% Property Tax + 0.5% Ins + PMI
+              </div>
+
+              {/* Bedrooms Fine-Tuning */}
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase mb-2">
+                  Bedrooms Required
+                </label>
+                <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
+                  {[
+                    { val: 0, label: 'Studio' },
+                    { val: 1, label: '1 Bed' },
+                    { val: 2, label: '2 Beds' },
+                    { val: 3, label: '3 Beds' },
+                    { val: 4, label: '4 Beds' },
+                    { val: 5, label: '5+ Beds' },
+                  ].map((item) => {
+                    const isSelected = criteria.bedrooms === item.val;
+                    return (
+                      <button
+                        key={item.val}
+                        type="button"
+                        onClick={() => updateField('bedrooms', item.val)}
+                        className={`py-3 px-2 rounded-xl text-xs font-bold transition border text-center ${
+                          isSelected
+                            ? 'bg-emerald-600 text-white border-emerald-600 shadow-md shadow-emerald-500/20'
+                            : 'bg-white text-slate-700 border-slate-200 hover:border-slate-300 hover:bg-slate-50'
+                        }`}
+                      >
+                        {item.label}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
-              <p className="text-xs text-blue-100">
-                Homes priced above this ceiling (such as $1,135,000) are automatically removed by the search engine.
-              </p>
+
+              {/* Bathrooms Fine-Tuning */}
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase mb-2">
+                  Bathrooms Required
+                </label>
+                <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+                  {[
+                    { val: 1, label: '1 Bath' },
+                    { val: 1.5, label: '1.5 Baths' },
+                    { val: 2, label: '2 Baths' },
+                    { val: 2.5, label: '2.5 Baths' },
+                    { val: 3, label: '3+ Baths' },
+                  ].map((item) => {
+                    const isSelected = criteria.bathrooms === item.val;
+                    return (
+                      <button
+                        key={item.val}
+                        type="button"
+                        onClick={() => updateField('bathrooms', item.val)}
+                        className={`py-2.5 px-2 rounded-xl text-xs font-bold transition border text-center ${
+                          isSelected
+                            ? 'bg-emerald-600 text-white border-emerald-600 shadow-md shadow-emerald-500/20'
+                            : 'bg-white text-slate-700 border-slate-200 hover:border-slate-300 hover:bg-slate-50'
+                        }`}
+                      >
+                        {item.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Rental Dwelling Types Fine-Tuning */}
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase mb-2">
+                  Preferred Rental Property Types
+                </label>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                  {(['Condo', 'Townhouse', 'Single Family', 'Multi-Family'] as HouseType[]).map((type) => {
+                    const isChecked = criteria.houseTypes.includes(type);
+                    const displayLabel = type === 'Condo' ? 'Apartment / Condo' : type;
+                    return (
+                      <label
+                        key={type}
+                        className={`flex items-center gap-2 p-3 rounded-xl border cursor-pointer font-semibold text-xs transition ${
+                          isChecked
+                            ? 'bg-emerald-50 border-emerald-600 text-emerald-950'
+                            : 'border-slate-200 text-slate-600 hover:bg-slate-50'
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={isChecked}
+                          onChange={(e) => {
+                            const newTypes = e.target.checked
+                              ? [...criteria.houseTypes, type]
+                              : criteria.houseTypes.filter((t) => t !== type);
+                            updateField('houseTypes', newTypes);
+                          }}
+                          className="w-4 h-4 text-emerald-600 rounded focus:ring-emerald-500"
+                        />
+                        <span>{displayLabel}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Rental Budget Ceiling Box */}
+              <div className="p-5 bg-gradient-to-br from-emerald-950 via-teal-900 to-slate-900 rounded-2xl text-white shadow-lg space-y-2.5">
+                <div className="text-xs uppercase font-bold tracking-wider text-emerald-300 flex items-center justify-between">
+                  <span>Rental Search Ceiling & Requirements</span>
+                  <span className="bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-2 py-0.5 rounded-full text-[10px]">
+                    Live Rental Filter
+                  </span>
+                </div>
+                <div className="flex flex-wrap items-baseline justify-between gap-2">
+                  <div className="text-3xl font-black text-emerald-400">
+                    ${criteria.maxMonthlyMortgage.toLocaleString()} <span className="text-sm font-semibold text-slate-300">/ month</span>
+                  </div>
+                  <div className="text-xs text-emerald-200 font-medium">
+                    Layout: {criteria.bedrooms === 0 ? 'Studio+' : `${criteria.bedrooms}+ Beds`} &bull; {criteria.bathrooms}+ Baths
+                  </div>
+                </div>
+                <p className="text-xs text-slate-300">
+                  Rental listings with monthly rent higher than <strong className="text-white">${criteria.maxMonthlyMortgage.toLocaleString()}/mo</strong> are automatically excluded from the search results.
+                </p>
+              </div>
             </div>
-          </div>
+          ) : (
+            /* BUY-SPECIFIC STOP 6 */
+            <div className="space-y-6 animate-in fade-in duration-200">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase mb-2">
+                    Down Payment ($) (Specification default: $50,000)
+                  </label>
+                  <div className="relative">
+                    <DollarSign className="absolute left-3.5 top-3.5 w-5 h-5 text-slate-400" />
+                    <input
+                      type="number"
+                      min={0}
+                      step={1000}
+                      value={criteria.downPayment}
+                      onChange={(e) => updateField('downPayment', Number(e.target.value))}
+                      className="w-full pl-10 pr-4 py-3 rounded-xl border border-slate-300 font-bold text-slate-800"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase mb-2">
+                    Gross Monthly Income ($) (Default: $8,000)
+                  </label>
+                  <div className="relative">
+                    <DollarSign className="absolute left-3.5 top-3.5 w-5 h-5 text-slate-400" />
+                    <input
+                      type="number"
+                      min={1000}
+                      step={500}
+                      value={criteria.monthlyIncome}
+                      onChange={(e) => updateField('monthlyIncome', Number(e.target.value))}
+                      className="w-full pl-10 pr-4 py-3 rounded-xl border border-slate-300 font-bold text-slate-800"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase mb-2">
+                    Max Monthly Mortgage Budget ($)
+                  </label>
+                  <div className="relative">
+                    <DollarSign className="absolute left-3.5 top-3.5 w-5 h-5 text-slate-400" />
+                    <input
+                      type="number"
+                      min={500}
+                      step={100}
+                      value={criteria.maxMonthlyMortgage}
+                      onChange={(e) => updateField('maxMonthlyMortgage', Number(e.target.value))}
+                      className="w-full pl-10 pr-4 py-3 rounded-xl border border-slate-300 font-bold text-slate-800"
+                    />
+                  </div>
+                  {isMortgageAbove36Percent && (
+                    <div className="mt-2 flex items-center gap-1.5 text-xs text-amber-700 bg-amber-50 p-2.5 rounded-lg border border-amber-200">
+                      <AlertTriangle className="w-4 h-4 flex-shrink-0" />
+                      <span>Warning: Desired budget exceeds 36% of gross income.</span>
+                    </div>
+                  )}
+                </div>
+
+                <div>
+                  <div className="flex justify-between items-center mb-2">
+                    <label className="text-xs font-bold text-slate-700 uppercase">
+                      Credit Score: <span className="text-blue-600 font-black">{criteria.creditScore}</span>
+                    </label>
+                    <span className="text-xs font-medium text-emerald-600">Rate: {currentInterestRate}% APR</span>
+                  </div>
+                  <input
+                    type="range"
+                    min={300}
+                    max={850}
+                    value={criteria.creditScore}
+                    onChange={(e) => updateField('creditScore', Number(e.target.value))}
+                    className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-600"
+                  />
+                  <div className="flex justify-between text-[11px] text-slate-400 mt-1">
+                    <span>300 (Challenged)</span>
+                    <span>720 (Default)</span>
+                    <span>850 (Exceptional)</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Calculated Affordability Ceiling Box */}
+              <div className="p-5 bg-gradient-to-br from-blue-900 to-indigo-900 rounded-2xl text-white shadow-lg space-y-2">
+                <div className="text-xs uppercase font-bold tracking-wider text-blue-300">
+                  Specification Price Ceiling Guarantee
+                </div>
+                <div className="flex flex-wrap items-baseline justify-between gap-2">
+                  <div className="text-3xl font-black text-emerald-400">
+                    ${criteria.calculatedMaxPrice.toLocaleString()}
+                  </div>
+                  <div className="text-xs text-slate-300">
+                    Includes 2% Property Tax + 0.5% Ins + PMI
+                  </div>
+                </div>
+                <p className="text-xs text-blue-100">
+                  Homes priced above this ceiling (such as $1,135,000) are automatically removed by the search engine.
+                </p>
+              </div>
+            </div>
+          )
         )}
 
         {/* ========================================================= */}
@@ -863,8 +1084,10 @@ export function QuestionnaireModal({
                   onChange={(e) => updateField('bedrooms', Number(e.target.value))}
                   className="w-full px-4 py-3 rounded-xl border border-slate-300 font-bold"
                 >
-                  {[1, 2, 3, 4, 5].map((n) => (
-                    <option key={n} value={n}>{n}+ Bedrooms</option>
+                  {[0, 1, 2, 3, 4, 5].map((n) => (
+                    <option key={n} value={n}>
+                      {n === 0 ? 'Studio (0 Beds)' : `${n}+ Bedrooms`}
+                    </option>
                   ))}
                 </select>
               </div>

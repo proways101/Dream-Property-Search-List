@@ -222,6 +222,7 @@ export default function HomePage() {
             setIsQuestionnaireOpen(true);
           }}
           selectedPersona={criteria.persona}
+          intent={criteria.intent}
         />
 
         {/* Dynamic Questionnaire Drawer / Modal */}
@@ -279,7 +280,7 @@ export default function HomePage() {
                 <div className="text-xs text-slate-600 font-medium flex items-center gap-2 flex-wrap">
                   <span>Matches: <strong className="text-slate-900">{scoredResults.length} homes</strong></span>
                   <span>&bull;</span>
-                  <span>Ceiling: <strong className="text-emerald-600">${criteria.calculatedMaxPrice.toLocaleString()}</strong></span>
+                  <span>Ceiling: <strong className="text-emerald-600">${criteria.calculatedMaxPrice.toLocaleString()}{criteria.intent === 'rent' ? '/mo' : ''}</strong></span>
                   <span>&bull;</span>
                   {dataSource === 'rentcast_live' ? (
                     <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-bold">

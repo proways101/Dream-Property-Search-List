@@ -164,6 +164,12 @@ export const DEFAULT_SEARCH_CRITERIA: SearchCriteria = {
 };
 
 export function updateCriteriaAffordability(criteria: SearchCriteria): SearchCriteria {
+  if (criteria.intent === 'rent') {
+    return {
+      ...criteria,
+      calculatedMaxPrice: criteria.maxMonthlyMortgage || 2500,
+    };
+  }
   const { maxPrice } = calculateMaxHomePrice(
     criteria.downPayment,
     criteria.monthlyIncome,

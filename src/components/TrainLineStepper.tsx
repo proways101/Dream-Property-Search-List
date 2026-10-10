@@ -10,12 +10,14 @@ interface TrainLineStepperProps {
   visitedStops: number[];
   onSelectStop: (stopIndex: number) => void;
   selectedPersona?: PersonaType;
+  intent?: 'buy' | 'rent';
 }
 
 export function TrainLineStepper({
   currentStopIndex,
   visitedStops,
   onSelectStop,
+  intent,
 }: TrainLineStepperProps) {
   return (
     <div className="w-full bg-slate-900 text-white p-4 md:p-6 rounded-2xl shadow-xl border border-slate-800">
@@ -98,7 +100,7 @@ export function TrainLineStepper({
                       : 'text-slate-500'
                   }`}
                 >
-                  {stop.shortLabel}
+                  {stop.id === 'affordability_engine' && intent === 'rent' ? 'Rent Budget' : stop.shortLabel}
                 </span>
 
                 {stop.isDynamicBranch && (
