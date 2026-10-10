@@ -201,11 +201,17 @@ function MapComponentInner({
           <div className="p-4 space-y-2.5">
             <div className="flex items-baseline justify-between">
               <div className="text-xl font-black text-slate-900">
-                ${hoveredProperty.price.toLocaleString()}
+                ${hoveredProperty.price.toLocaleString()}{hoveredProperty.price < 20000 ? '/mo' : ''}
               </div>
-              <div className="text-xs font-medium text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md">
-                ~${hoveredProperty.estimatedMonthlyPayment.toLocaleString()}/mo
-              </div>
+              {hoveredProperty.price >= 20000 ? (
+                <div className="text-xs font-medium text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md">
+                  ~${hoveredProperty.estimatedMonthlyPayment.toLocaleString()}/mo
+                </div>
+              ) : (
+                <div className="text-xs font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded-md">
+                  For Rent
+                </div>
+              )}
             </div>
 
             <div className="text-sm font-semibold text-slate-800 line-clamp-1">

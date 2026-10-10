@@ -86,11 +86,17 @@ export function ListingCard({
           {/* Price & Monthly Estimate */}
           <div className="flex items-baseline justify-between mb-1">
             <div className="text-2xl font-black text-slate-900">
-              ${property.price.toLocaleString()}
+              ${property.price.toLocaleString()}{property.price < 20000 ? '/mo' : ''}
             </div>
-            <div className="text-xs font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md">
-              ~${property.estimatedMonthlyPayment.toLocaleString()}/mo
-            </div>
+            {property.price >= 20000 ? (
+              <div className="text-xs font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md">
+                ~${property.estimatedMonthlyPayment.toLocaleString()}/mo
+              </div>
+            ) : (
+              <div className="text-xs font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded-md">
+                For Rent
+              </div>
+            )}
           </div>
 
           <div className="text-sm font-bold text-slate-800 line-clamp-1">
